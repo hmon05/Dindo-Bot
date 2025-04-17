@@ -1,6 +1,3 @@
-# Dindo Bot
-# Copyright (c) 2018 - 2019 AXeL
-
 import json
 from .tools import read_file, save_text_to_file, get_full_path
 
