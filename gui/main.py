@@ -1,25 +1,26 @@
 # Dindo Bot
 # Copyright (c) 2018 - 2019 AXeL
 
-import platform
-import os
+import platform, os
 
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QHeaderView,QApplication, QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QFileDialog, QSpinBox, QCheckBox, QTabWidget, QTextEdit, QProgressBar, QGroupBox, QRadioButton, QScrollArea, QMessageBox, QMenu, QAction, QListWidget)
-from PyQt5.QtCore import Qt, QThread, QTimer, pyqtSignal
-from PyQt5.QtGui import QIcon, QPixmap, QColor, QPalette, QFont, QCursor
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QMenu, QAction)
+from PyQt5.QtCore import QThread, Qt
 
+from PyQt5.QtGui import QIcon, QPixmap, QColor, QPalette, QFont, QCursor, QKeySequence
+from PyQt5.QtWidgets import QHeaderView
 from lib import tools, logger, data, parser, settings, accounts, maps
 from threads.bot import BotThread
 from lib.shared import LogType, DebugLevel, __program_name__, GameVersion
 from .dev import DevToolsWidget
 from .custom import *
+from PyQt5.QtWidgets import QFileDialog
 from .dialog import *
 
 class BotWindow(QMainWindow):
+	preferences_button = None
 
 	def __init__(self, title=__program_name__):
-		GObject.threads_init() # allow threads to update GUI
-		Gtk.Window.__init__(self, title=title)
+		#GObject.threads_init() # allow threads to update GUI
 		logger.add_separator()
 		# Initialise class attributes
 		self.is_windows = platform.system() == "Windows"
@@ -32,11 +33,17 @@ class BotWindow(QMainWindow):
 		self.settings = settings.load()
 		# Header Bar
 		self.create_header_bar(title)
+		#Main layout for the Window
+		main_layout = QVBoxLayout()
+		
+		#Adding the header bar as a widget
+		main_layout.addWidget(self.header_bar)
+
 		# Tabs
 		self.create_tabs()
 		# Window
 		self.set_icon_from_file(tools.get_full_path('icons/logo.png'))
-		self.setFixedSize(350, 700)
+		self.setFixedSize(350, 600)
 		
 		self.setWindowTitle(title)
 
@@ -136,8 +143,13 @@ class BotWindow(QMainWindow):
 		dialog.run()
 
 	def on_preferences_button_clicked(self, button):
-		dialog = PreferencesDialog(transient_for=self)
-		dialog.run()
+		dialog = PreferencesDialog(self.settings, self.accounts, self.debug, self.debug_level, self.on_settings_changed)
+		
+		file_path, _ = QFileDialog.getOpenFileName(self, "Load Settings", "", "Settings (*.json)")
+		
+		if file_path:
+			dialog.load_settings(file_path)
+		dialog.show()
 
 	def on_accounts_button_clicked(self, button):
 		dialog = AccountsDialog(transient_for=self)
@@ -153,58 +165,53 @@ class BotWindow(QMainWindow):
 	def create_header_bar(self, title):
 		# Header Bar
 		hb = QWidget()
-		#logo = QPixmap(tools.get_full_path('icons/logo.png')).scaled(24, 24)
-		#hb.pack_start(QLabel(pixmap=logo))
+		
+		hb_layout = QHBoxLayout()
+		
+		logo_pixmap = QPixmap(tools.get_full_path('icons/logo.png')).scaled(24, 24)
+		logo_label = QLabel()
+		logo_label.setPixmap(logo_pixmap)
+		hb_layout.addWidget(logo_label)
 
-		# # Adapt for Windows
-		# if self.is_windows:
-		# 	hb.set_show_close_button(False)
-		# else:
-		# 	hb.set_show_close_button(True)
-		
-		hb.set_show_close_button(True)
-		
-		self.set_titlebar(hb)
-		# Settings button
-		self.settings_button = Gtk.Button()
-		self.settings_button.set_image(Gtk.Image(icon_name='open-menu-symbolic'))
-		self.settings_button.connect('clicked', lambda button: self.popover.show_all())
-		hb.pack_end(self.settings_button)
-		self.popover = Gtk.Popover(relative_to=self.settings_button, position=Gtk.PositionType.BOTTOM)
-		self.popover.set_border_width(2)
-		box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-		self.popover.add(box)
+		hb_layout.addStretch(1)
+
 		# Preferences button
-		preferences_button = Gtk.ModelButton(' Preferences')
-		preferences_button.set_alignment(0, 0.5)
-		preferences_button.set_image(Gtk.Image(icon_name='preferences-desktop'))
-		preferences_button.connect('clicked', self.on_preferences_button_clicked)
-		box.add(preferences_button)
+		self.preferences_button = QPushButton(QIcon.fromTheme('preferences-desktop'), 'Preferences')
+		self.preferences_button.clicked.connect(self.on_preferences_button_clicked)
+		hb_layout.addWidget(self.preferences_button)
+		self.settings_button = QPushButton(QIcon.fromTheme('open-menu-symbolic'), "")
+		self.settings_button.setCursor(Qt.PointingHandCursor)
+		self.settings_button.setFlat(True)
+		hb_layout.addWidget(self.settings_button)
+
+		hb.setLayout(hb_layout)
+
+		self.header_bar = hb
+
+		self.popover = QMenu(self)
+
 		# Accounts button
-		accounts_button = Gtk.ModelButton(' Accounts')
-		accounts_button.set_alignment(0, 0.5)
-		accounts_button.set_image(Gtk.Image(icon_name='dialog-password'))
-		accounts_button.connect('clicked', self.on_accounts_button_clicked)
-		box.add(accounts_button)
+		accounts_action = QAction(QIcon.fromTheme('dialog-password'), ' Accounts', self)
+		accounts_action.triggered.connect(self.on_accounts_button_clicked)
+		self.popover.addAction(accounts_action)
+
 		# Take Game Screenshot button
-		self.take_screenshot_button = Gtk.ModelButton(' Take Game Screenshot')
-		self.take_screenshot_button.set_alignment(0, 0.5)
-		self.take_screenshot_button.set_image(Gtk.Image(icon_name='camera-photo'))
+		self.take_screenshot_button = QAction(QIcon.fromTheme('camera-photo'), ' Take Game Screenshot', self)
+		self.take_screenshot_button.triggered.connect(self.on_take_screenshot_button_clicked)
 		self.take_screenshot_button.set_sensitive(False)
-		self.take_screenshot_button.connect('clicked', self.on_take_screenshot_button_clicked)
-		box.add(self.take_screenshot_button)
+		self.popover.addAction(self.take_screenshot_button)
+
 		# Open Log File button
-		open_log_button = Gtk.ModelButton(' Open Log File')
-		open_log_button.set_alignment(0, 0.5)
-		open_log_button.set_image(Gtk.Image(icon_name='text-x-generic'))
-		open_log_button.connect('clicked', lambda button: tools.open_file_in_editor(logger.get_filename()))
-		box.add(open_log_button)
+		open_log_action = QAction(QIcon.fromTheme('text-x-generic'), ' Open Log File', self)
+		open_log_action.triggered.connect(lambda: tools.open_file_in_editor(logger.get_filename()))
+		self.popover.addAction(open_log_action)
+
 		# About button
-		about_button = Gtk.ModelButton(' About')
-		about_button.set_alignment(0, 0.5)
-		about_button.set_image(Gtk.Image(icon_name='help-about'))
-		about_button.connect('clicked', self.on_about_button_clicked)
-		box.add(about_button)
+		about_action = QAction(QIcon.fromTheme('help-about'), ' About', self)
+		about_action.triggered.connect(self.on_about_button_clicked)
+		self.popover.addAction(about_action)
+
+		self.settings_button.clicked.connect(lambda: self.popover.exec_(self.settings_button.mapToGlobal(self.settings_button.rect().bottomLeft())))
 
 	def log_view_auto_scroll(self, textview, event):
 		pass
@@ -264,13 +271,7 @@ class BotWindow(QMainWindow):
 		self.game_window_combo = Gtk.ComboBoxText()
 		self.game_window_combo.set_margin_left(10)
 		if self.is_windows:
-			self.populate_game_window_combo_windows()
-		else:
-			self.populate_game_window_combo()
-		
-		self.game_window_combo.connect('changed', self.on_game_window_combo_changed)
-		game_window_box.pack_start(self.game_window_combo, True, True, 0)
-		# Refresh
+			self.populate_game_window_combo()		
 		self.refresh_button = Gtk.Button()
 		self.refresh_button.set_image(Gtk.Image(icon_name='view-refresh'))
 		self.refresh_button.set_tooltip_text('Refresh')
@@ -1039,29 +1040,18 @@ class BotWindow(QMainWindow):
 		self.bot_path = filechooserbutton.get_filename()
 
 	def populate_game_window_combo(self):
-		
 		self.game_window_combo_ignore_change = True
 		self.game_window_combo.remove_all()
-		self.game_windowList = tools.get_game_window_list()
-		count = len(self.game_windowList)
+		self.game_window_list = tools.get_game_window_list()		
 		
-		if count == 0:
-			self.debug('Populate game window combobox, no window found', DebugLevel.High)
-		else:
-			self.debug('Populate game window combobox, %d window found' % count, DebugLevel.High)
-		for window_name in self.game_windowList:
-			
+		for window_name in self.game_window_list:
 			self.game_window_combo.append_text(window_name)
+		
 		self.game_window_combo_ignore_change = False
-
-	def populate_game_window_combo_windows(self):
-		self.game_window_combo_ignore_change = True
-		self.game_window_combo.remove_all()
-		self.game_windowList = tools.get_game_window_list()
-		for window_name in self.game_windowList:
-			# Asegurarse de que el nombre de la ventana no esté vacío
-			if window_name:
-				self.game_window_combo.append_text(window_name)
+		
+		if not self.game_window_list:
+			
+			self.debug('Populate game window combo: No game windows found.', DebugLevel.High)
 		self.game_window_combo_ignore_change = False
 
 	def focus_game(self):
@@ -1075,21 +1065,21 @@ class BotWindow(QMainWindow):
 		if self.game_window and not self.game_window.is_destroyed() and location:
 			x, y, width, height = location
 			self.debug('Move & resize game window (x: %d, y: %d, width: %d, height: %d)' % (x, y, width, height), DebugLevel.Low)
-			self.game_window.unmaximize()
-			self.game_window.move_resize(x, y, width, height)
-			self.game_window.show() # force show (when minimized)
-			tools.activate_window(self.game_window)
+			#self.game_window.unmaximize()
+			#self.game_window.move_resize(x, y, width, height)
+			#self.game_window.show() # force show (when minimized)
+			tools.activate_window(self.game_window) #TODO verify if this is really correct.
 
-	def bind_game_window(self, window_xid):
-		self.debug('Bind game window (id: %d)' % window_xid, DebugLevel.Low)
-		self.game_window = tools.get_game_window(window_xid)
+	def bind_game_window(self, window_name):
+		self.debug('Bind game window (id: %s)' % window_name, DebugLevel.Low)
+		self.game_window = self.game_window_list[window_name]
 		if self.game_window:
 			bot_width, bot_height = self.get_size()
 			bot_decoration_height = self.get_titlebar().get_allocated_height()
 			screen_width, screen_height = tools.get_screen_size()
 			game_window_left_margin = 1
-			game_window_decoration_height = self.settings['Game']['WindowDecorationHeight'] if self.settings['Game']['UseCustomWindowDecorationHeight'] else tools.get_game_window_decoration_height(window_xid)
-			game_window_width = screen_width - bot_width - game_window_left_margin
+			game_window_decoration_height = self.settings['Game']['WindowDecorationHeight'] if self.settings['Game']['UseCustomWindowDecorationHeight'] else 0
+			game_window_width = 1000 #screen_width - bot_width - game_window_left_margin
 			game_window_height = bot_height if self.settings['Game']['UseCustomWindowDecorationHeight'] else bot_height + bot_decoration_height - game_window_decoration_height
 			if game_window_width > 900:
 				game_window_width = 900
@@ -1102,23 +1092,19 @@ class BotWindow(QMainWindow):
 			# move bot & game window
 			self.move(bot_x_position, bot_y_position)
 			self.move_resize_game_window(self.game_window_location)
+			tools.activate_window(self.game_window)
 			# enable/disable widgets
 			self.refresh_button.hide()
 			self.unbind_button.show()
 
-			if self.is_windows:
-					self.game_window_combo.set_sensitive(False)
-			else:
-					self.game_window_combo.set_sensitive(False)
-
-			self.game_window_combo.set_sensitive(False)
+			
+			#self.game_window_combo.set_sensitive(False) #TODO add back if correct
 			self.take_screenshot_button.set_sensitive(True)
 
 	def on_game_window_combo_changed(self, combo):
 		if self.game_windowList and not self.game_window_combo_ignore_change:
 			# get selected game window
-			selected = combo.get_active_text()
-			window_xid = self.game_windowList[selected]
+			window_xid = combo.get_active_text()
 			# bind it
 			self.bind_game_window(window_xid)
 
@@ -1126,18 +1112,15 @@ class BotWindow(QMainWindow):
 		self.debug('Unbind game window')
 		if self.settings['Game']['KeepOpen']:
 			self.debug('Keep game window open')
-		elif self.game_window and not self.game_window.is_destroyed():
-			self.game_window.destroy()
+		#elif self.game_window and not self.game_window.is_destroyed():
+		#	self.game_window.destroy()
 		self.game_window = None
 		self.game_window_location = None
 		self.debug('Game window unbinded')
 		# enable/disable widgets
 		self.unbind_button.hide()
-		self.refresh_button.show()
-		self.game_window_combo.set_sensitive(True)
-		if self.is_windows:
-			self.populate_game_window_combo_windows()
-		else:
+		self.refresh_button.show() #TODO add back if correct
+		self.game_window_combo.set_sensitive(True)	
 			self.populate_game_window_combo()
 		
 		

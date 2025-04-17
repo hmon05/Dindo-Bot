@@ -478,17 +478,6 @@ class MenuImage(Gtk.EventBox):
 	def set_widget(self, widget):
 		self.popover.add(widget)
 
-class FileChooserButton(Gtk.FileChooserButton):
-
-	def __init__(self, title, filter=None):
-		Gtk.FileChooserButton.__init__(self, title=title)
-		if filter is not None and len(filter) > 1:
-			name, pattern = filter
-			file_filter = Gtk.FileFilter()
-			file_filter.set_name('%s (%s)' % (name, pattern))
-			file_filter.add_pattern(pattern)
-			self.add_filter(file_filter)
-
 class MiniMap(Gtk.Frame):
 
 	point_colors = {

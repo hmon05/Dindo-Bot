@@ -478,6 +478,15 @@ class PreferencesDialog(CustomDialog):
 		self.show_all()
 
 	def on_game_version_combo_changed(self, combo):
+		"""Opens a QFileDialog to select a JSON settings file.
+
+        Returns:
+            str: The path to the selected JSON file, or None if no file was selected.
+        """
+		file_dialog = QFileDialog(self, "Load Settings", "", "Settings (*.json)")
+		if file_dialog.exec_() == QDialog.Accepted:
+			return file_dialog.selectedFiles()[0]
+		return None
 		value = combo.get_active_value()
 		settings.update_and_save(self.parent.settings, key='Game', subkey='Version', value=value)
 		if value == shared.GameVersion.Retro:

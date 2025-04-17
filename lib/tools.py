@@ -3,14 +3,10 @@
 
 import sys
 import os
-import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('Wnck', '3.0')
-from gi.repository import Gtk, Gdk, Wnck
 from datetime import datetime
 from PIL import Image
 from . import parser
-import pyautogui
+import pyautogui, psutil
 import time
 import socket
 import webbrowser
@@ -20,10 +16,6 @@ if platform.system() == 'Windows':
 	import win32gui
 else:
 	from Xlib import display, X, Xatom
-
-disp = display.Display()
-root = disp.screen().root
-NET_FRAME_EXTENTS = disp.intern_atom('_NET_FRAME_EXTENTS')
 
 # Return active game window(s) list
 def get_game_window_list():
@@ -46,25 +38,12 @@ def get_game_window_list():
 						pass
 
 			win32gui.EnumWindows(winEnumHandler, None)
-		else:
-			screen = Wnck.Screen.get_default()
-			screen.force_update() # recommended per Wnck documentation
-			window_list = screen.get_windows()
-			for window in window_list:
-				window_name = window.get_name()
-				instance_name = window.get_class_instance_name()
-				#print('[' + instance_name + '] ' + window_name)
-				if instance_name == 'dofus.exe' or instance_name == 'dofus': # use 'sun-awt-X11-XFramePeer' for Wakfu
-					if window_name in game_window_list:
-						name = '%s (%d)' % (window_name, len(game_window_list)+1)
-					else:
-						name = window_name
-					game_window_list[name] = window.get_xid()
 	except Exception as ex:
-		print(ex.message)
+		print(ex)
 	return game_window_list
 
 # Return screen size
+
 def get_screen_size():
 	#screen = Gdk.Screen.get_default()
 	#return (screen.get_width(), screen.get_height())
@@ -76,28 +55,12 @@ def activate_window(window_id):
 		win32gui.ShowWindow(window_id, 5)  # SW_SHOW
 		win32gui.SetForegroundWindow(window_id)
 	else:
-		screen = Wnck.Screen.get_default()
-		screen.force_update()
-		wnckwin = [win for win in screen.get_windows() if win.get_xid() == window_id][0]
-		if wnckwin:
-			wnckwin.activate(Gdk.x11_get_server_time(screen))
-
-# Return game window (Linux only)
-def get_game_window(window_xid): 
-	if platform.system() == 'Linux':
-		gdk_display = Gdk.Display.get_default()
-		game_window = Gdk.Window.foreign_new_for_display(gdk_display, window_xid)
-		return game_window
-	return None
+		pass
 
 # Return game window decoration height
 def get_game_window_decoration_height(window_xid):
-	if platform.system() == 'Linux':
-		window = disp.create_resource_object('window', window_xid)
-		window_decoration_property = window.get_full_property(NET_FRAME_EXTENTS, Xatom.CARDINAL).value # return array(left, right, top, bottom) of borders width
-		window_decoration_height = int(window_decoration_property[2]) + int(window_decoration_property[3])
-		return window_decoration_height
-	return 0 
+    return 0
+
 
 # Return absolute path
 def get_full_path(rel_path):
@@ -130,11 +93,7 @@ def print_internet_state(state=None):
 
 # Take a screenshot of given window
 def take_window_screenshot(window, save_to='screenshot'):
-	if platform.system() == 'Linux':
-		size = window.get_geometry()
-		pb = Gdk.pixbuf_get_from_window(window, 0, 0, size.width, size.height)
-		pb.savev(save_to + '.png', 'png', (), ())
-	else:
+	if platform.system() == 'Windows':
 		pyautogui.screenshot(save_to + '.png')
 
 # Return a screenshot of the game
@@ -142,12 +101,7 @@ def screen_game(region, save_to=None):
 	x, y, width, height = region
 	try:
 		raw = root.get_image(x, y, width, height, X.ZPixmap, 0xffffffff)
-		if hasattr(Image, 'frombytes'):
-			# for Pillow
-			screenshot = Image.frombytes('RGB', (width, height), raw.data, 'raw', 'BGRX')
-		else:
-			# for PIL
-			screenshot = Image.fromstring('RGB', (width, height), raw.data, 'raw', 'BGRX')
+		screenshot = Image.frombytes('RGB', (width, height), raw.data, 'raw', 'BGRX')
 		if save_to is not None:
 			screenshot.save(save_to + '.png')
 	except:
@@ -209,20 +163,6 @@ def platform_is(platform_name, use_startswith=False):
 def get_cmd_args():
 	return sys.argv[1:]
 
-# Return widget location
-def get_widget_location(widget):
-	if widget:
-		# get widget allocation (relative to parent)
-		allocation = widget.get_allocation()
-		# get widget position (relative to root window)
-		if type(widget) in (Gtk.DrawingArea, Gtk.EventBox, Gtk.Socket):
-			pos = widget.get_window().get_origin()
-			return (pos.x, pos.y, allocation.width, allocation.height)
-		else:
-			pos_x, pos_y = widget.get_window().get_root_coords(allocation.x, allocation.y)
-			return (pos_x, pos_y, allocation.width, allocation.height)
-	else:
-		return None
 
 # Check if position is inside given bounds
 def position_is_inside_bounds(pos_x, pos_y, bounds_x, bounds_y, bounds_width, bounds_height):
@@ -358,3 +298,4 @@ def get_screen_size():
 # Move mouse to position
 def move_mouse_to(position):
 	pyautogui.moveTo(position)
+
