@@ -1,20 +1,21 @@
 # Dindo Bot
 # Copyright (c) 2018 - 2019 AXeL
 
-import gi
-gi.require_version('Gtk', '3.0')
 import platform
 import os
-from gi.repository import Gtk, Gdk, GdkPixbuf, GObject
+
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QHeaderView,QApplication, QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QFileDialog, QSpinBox, QCheckBox, QTabWidget, QTextEdit, QProgressBar, QGroupBox, QRadioButton, QScrollArea, QMessageBox, QMenu, QAction, QListWidget)
+from PyQt5.QtCore import Qt, QThread, QTimer, pyqtSignal
+from PyQt5.QtGui import QIcon, QPixmap, QColor, QPalette, QFont, QCursor
+
 from lib import tools, logger, data, parser, settings, accounts, maps
 from threads.bot import BotThread
 from lib.shared import LogType, DebugLevel, __program_name__, GameVersion
 from .dev import DevToolsWidget
 from .custom import *
 from .dialog import *
-from threading import Thread
 
-class BotWindow(Gtk.ApplicationWindow):
+class BotWindow(QMainWindow):
 
 	def __init__(self, title=__program_name__):
 		GObject.threads_init() # allow threads to update GUI
@@ -35,17 +36,18 @@ class BotWindow(Gtk.ApplicationWindow):
 		self.create_tabs()
 		# Window
 		self.set_icon_from_file(tools.get_full_path('icons/logo.png'))
-		#self.set_size_request(350, 700)
-		self.set_default_size(350, 700)
-		self.set_resizable(False)
-		self.connect('key-press-event', self.on_key_press)
+		self.setFixedSize(350, 700)
+		
+		self.setWindowTitle(title)
+
+		self.show()
+		
+		#self.connect('key-press-event', self.on_key_press)
 		#self.connect('configure-event', self.on_resize_or_move)
 		#self.connect('window-state-event', self.on_minimize)
-		self.connect('destroy', Gtk.main_quit)
-		self.show_all()
+		#self.connect('destroy', Gtk.main_quit)
+		
 		self.unbind_button.hide()
-		if not self.settings['Debug']['Enabled']:
-			self.debug_page.hide()
 		if not self.settings['State']['EnablePodBar']:
 			self.podbar_box.hide()
 		if not self.settings['State']['EnableMiniMap']:
@@ -150,15 +152,15 @@ class BotWindow(Gtk.ApplicationWindow):
 
 	def create_header_bar(self, title):
 		# Header Bar
-		hb = Gtk.HeaderBar(title=title)
-		logo = GdkPixbuf.Pixbuf.new_from_file_at_size(tools.get_full_path('icons/logo.png'), 24, 24)
-		hb.pack_start(Gtk.Image(pixbuf=logo))
+		hb = QWidget()
+		#logo = QPixmap(tools.get_full_path('icons/logo.png')).scaled(24, 24)
+		#hb.pack_start(QLabel(pixmap=logo))
 
-		# Adapt for Windows
-		if self.is_windows:
-			hb.set_show_close_button(False)
-		else:
-			hb.set_show_close_button(True)
+		# # Adapt for Windows
+		# if self.is_windows:
+		# 	hb.set_show_close_button(False)
+		# else:
+		# 	hb.set_show_close_button(True)
 		
 		hb.set_show_close_button(True)
 		
@@ -205,12 +207,12 @@ class BotWindow(Gtk.ApplicationWindow):
 		box.add(about_button)
 
 	def log_view_auto_scroll(self, textview, event):
-		adj = textview.get_vadjustment()
-		adj.set_value(adj.get_upper() - adj.get_page_size())
+		pass
+		#adj = textview.verticalScrollBar()
+		#adj.setValue(adj.maximum())
 
 	def debug_view_auto_scroll(self, textview, event):
-		adj = textview.get_vadjustment()
-		adj.set_value(adj.get_upper() - adj.get_page_size())
+		pass
 
 	def create_tabs(self):
 		bot_notebook = Gtk.Notebook()

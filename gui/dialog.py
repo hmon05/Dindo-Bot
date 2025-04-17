@@ -1,39 +1,43 @@
 # coding=utf-8
 # Dindo Bot
 # Copyright (c) 2018 - 2019 AXeL
-
-import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GdkPixbuf
+from PyQt5.QtWidgets import (QDialog, QWidget, QLabel, QLineEdit, QVBoxLayout, QHBoxLayout, QPushButton, QHeaderView,
+                             QMessageBox, QFileDialog, QFrame, QCheckBox, QComboBox, QSpinBox, QStackedWidget, QStackedLayout)
+from PyQt5.QtGui import QPixmap, QIcon, QCursor, QFont
+from PyQt5.QtCore import Qt, pyqtSignal
 from lib import tools, shared, settings, accounts, maps
-from .custom import CustomComboBox, CustomTreeView, TextValueComboBox, ButtonBox, MessageBox, MiniMap, SpinButton
+from .custom import CustomComboBox, CustomTreeView, TextValueComboBox, ButtonBox, MessageBox, MiniMap, SpinButton, CustomListBox
 
-class AboutDialog(Gtk.AboutDialog):
+
+class AboutDialog(QDialog):
 
 	def __init__(self, transient_for):
-		Gtk.AboutDialog.__init__(self, transient_for=transient_for)
-		self.set_program_name(shared.__program_name__)
-		self.set_version(shared.__version__)
-		self.set_comments(shared.__program_desc__)
-		self.set_website(shared.__website__)
-		self.set_website_label(shared.__website_label__)
-		self.set_authors(shared.__authors__)
-		logo = GdkPixbuf.Pixbuf.new_from_file_at_size(tools.get_full_path('icons/logo.png'), 64, 64)
-		self.set_logo(logo)
-		self.connect('response', lambda dialog, response: self.destroy())
+		super().__init__(transient_for)
+		self.setWindowTitle("About")
+		layout = QVBoxLayout(self)
+		logo_path = tools.get_full_path('icons/logo.png')
+		logo_pixmap = QPixmap(logo_path).scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+		logo_label = QLabel()
+		logo_label.setPixmap(logo_pixmap)
+		layout.addWidget(logo_label, alignment=Qt.AlignCenter)
+		layout.addWidget(QLabel(f"<b>{shared.__program_name__}</b>"), alignment=Qt.AlignCenter)
+		layout.addWidget(QLabel(f"Version {shared.__version__}"), alignment=Qt.AlignCenter)
+		layout.addWidget(QLabel(shared.__program_desc__), alignment=Qt.AlignCenter)
+		website_label = QLabel(f"<a href='{shared.__website__}'>{shared.__website_label__}</a>")
+		website_label.setOpenExternalLinks(True)
+		layout.addWidget(website_label, alignment=Qt.AlignCenter)
+		layout.addWidget(QLabel(f"Authors: {', '.join(shared.__authors__)}"), alignment=Qt.AlignCenter)
+		self.show()
 
-class CustomDialog(Gtk.Dialog):
 
-	def __init__(self, title, transient_for=None, destroy_on_response=True):
-		Gtk.Dialog.__init__(self, modal=True, transient_for=transient_for, title=title)
-		self.set_border_width(10)
-		self.set_resizable(False)
-		if destroy_on_response:
-			self.connect('response', lambda dialog, response: self.destroy())
-		# Header Bar
-		hb = Gtk.HeaderBar(title=title)
-		hb.set_show_close_button(True)
-		self.set_titlebar(hb)
+class CustomDialog(QDialog):
+    def __init__(self, title, transient_for=None):
+        super().__init__(transient_for)
+        self.setWindowTitle(title)
+        self.setModal(True)
+        self.setFixedWidth(400)
+        self.vbox = QVBoxLayout(self)
+        self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
 
 class AlertDialog(CustomDialog):
 
@@ -41,14 +45,15 @@ class AlertDialog(CustomDialog):
 		CustomDialog.__init__(self, transient_for=transient_for, title='Alert')
 		# message
 		content_area = self.get_content_area()
-		content_area.set_spacing(5)
-		content_area.add(Gtk.Label(message, use_markup=True))
+		content_area.addWidget(QLabel(message))
 		# Ok button
-		self.action_area.set_layout(Gtk.ButtonBoxStyle.CENTER)
-		ok_button = Gtk.Button('Ok')
-		self.add_action_widget(ok_button, Gtk.ResponseType.OK)
-		self.show_all()
-		self.run()
+		self.ok_button = QPushButton("OK")
+		self.ok_button.clicked.connect(self.accept)
+		button_layout = QHBoxLayout()
+		button_layout.addStretch(1)
+		button_layout.addWidget(self.ok_button)
+		self.vbox.addLayout(button_layout)
+		self.exec_()
 
 class CopyTextDialog(CustomDialog):
 
@@ -56,15 +61,15 @@ class CopyTextDialog(CustomDialog):
 		CustomDialog.__init__(self, transient_for=transient_for, title='Copy Text')
 		# text entry
 		content_area = self.get_content_area()
-		content_area.set_spacing(5)
-		entry = Gtk.Entry()
-		entry.set_text(text)
-		entry.set_width_chars(60)
-		content_area.add(entry)
+		self.entry = QLineEdit(text)
+		self.entry.setFixedWidth(300)
+		content_area.addWidget(self.entry)
 		# Close button
-		self.action_area.set_layout(Gtk.ButtonBoxStyle.CENTER)
-		close_button = Gtk.Button('Close')
-		self.add_action_widget(close_button, Gtk.ResponseType.OK)
+		close_button = QPushButton('Close')
+		close_button.clicked.connect(self.accept)
+		button_layout = QHBoxLayout()
+		button_layout.addStretch(1)
+		button_layout.addWidget(close_button)
 		self.show_all()
 		self.run()
 
@@ -72,28 +77,27 @@ class LoadMapDialog(CustomDialog):
 
 	def __init__(self, transient_for):
 		CustomDialog.__init__(self, transient_for=transient_for, title='Load Map', destroy_on_response=False)
+		self.setFixedWidth(300)
 		self.parent = transient_for
 		self.data = maps.load()
-		self.set_size_request(300, -1)
-		self.connect('delete-event', lambda dialog, response: self.destroy())
+		self.setWindowFlag(Qt.WindowCloseButtonHint, False)
 		# Map combobox
-		content_area = self.get_content_area()
-		content_area.set_spacing(5)
-		content_area.add(Gtk.Label('<b>Map</b>', xalign=0, use_markup=True))
-		self.maps_combo = CustomComboBox(self.data, sort=True)
-		self.maps_combo.set_margin_left(10)
-		self.maps_combo.connect('changed', self.on_maps_combo_changed)
-		content_area.add(self.maps_combo)
+		self.label_map = QLabel("<b>Map</b>")
+		self.maps_combo = CustomComboBox(self.data, sort=True, margin_left=10)
+		self.maps_combo.currentIndexChanged.connect(self.on_maps_combo_changed)
+		self.vbox.addWidget(self.label_map)
+		self.vbox.addWidget(self.maps_combo)
 		# Error box
-		self.error_box = MessageBox(color='red')
-		self.error_box.set_margin_left(10)
-		content_area.add(self.error_box)
+		self.error_box = MessageBox(color='red', margin_left=10)
+		self.vbox.addWidget(self.error_box)
 		# Load button
-		self.action_area.set_layout(Gtk.ButtonBoxStyle.CENTER)
-		load_button = Gtk.Button('Load')
-		load_button.connect('clicked', self.on_load_button_clicked)
-		self.add_action_widget(load_button, Gtk.ResponseType.OK)
-		self.show_all()
+		self.load_button = QPushButton('Load')
+		self.load_button.clicked.connect(self.on_load_button_clicked)
+		button_layout = QHBoxLayout()
+		button_layout.addStretch(1)
+		button_layout.addWidget(self.load_button)
+		self.vbox.addLayout(button_layout)
+
 		self.reset()
 
 	def reset(self):
@@ -101,11 +105,11 @@ class LoadMapDialog(CustomDialog):
 
 	def on_maps_combo_changed(self, combo):
 		self.reset()
-		if not self.parent.map_data_listbox.is_empty():
+		if not self.parent.map_data_listbox.is_empty:
 			self.error_box.print_message('Your current data will be erased !')
 
 	def on_load_button_clicked(self, button):
-		selected = self.maps_combo.get_active_text()
+		selected = self.maps_combo.currentText()
 		if selected:
 			# clear listbox & view
 			self.parent.map_data_listbox.clear()
@@ -124,19 +128,19 @@ class LoadMapDialog(CustomDialog):
 			else:
 				self.parent.map_view.add_points(self.data[selected], 'Resource', MiniMap.point_colors['Resource'])
 			# destroy dialog
-			self.destroy()
+			self.accept()
 		else:
 			self.error_box.print_message('Please select a map')
 
 class DeleteMapDialog(CustomDialog):
 
 	def __init__(self, transient_for):
+		self.setFixedWidth(300)
 		CustomDialog.__init__(self, transient_for=transient_for, title='Delete Map', destroy_on_response=False)
 		self.parent = transient_for
 		self.data = maps.load()
-		self.set_size_request(300, -1)
-		self.connect('delete-event', lambda dialog, response: self.destroy())
-		# Map combobox
+		self.setWindowFlag(Qt.WindowCloseButtonHint, False)
+        # Map combobox
 		content_area = self.get_content_area()
 		content_area.set_spacing(5)
 		content_area.add(Gtk.Label('<b>Map</b>', xalign=0, use_markup=True))
@@ -164,7 +168,7 @@ class DeleteMapDialog(CustomDialog):
 
 	def delete_data(self):
 		selected = self.maps_combo.get_active()
-		if selected != -1:
+		if selected >=0:
 			# delete
 			map_name = self.maps_combo.get_active_text()
 			del self.data[map_name]

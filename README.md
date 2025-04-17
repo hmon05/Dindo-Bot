@@ -1,5 +1,5 @@
 # <img src="icons/logo.png" alt="logo" width="32"> Dindo Bot
-
+ 
 [![Python](https://img.shields.io/badge/python%20%3E%3D-3.0-blue.svg)](https://www.python.org/)
 [![GTK](https://img.shields.io/badge/gtk-3.0-brightgreen.svg)](https://www.gtk.org/)
 [![OS](https://img.shields.io/badge/os-Linux-orange.svg)](https://www.ubuntu.com/download/desktop)
@@ -32,6 +32,15 @@ A bot is a software that emulates a real game client in order to automate some t
 - Automated actions like flood :speech_balloon:.
 
 ## Installation
+
+**Windows Compatibility Note**
+
+This application was originally developed for Linux and used the `gi` library for its graphical interface. To ensure compatibility with Windows, we have transitioned to `PyQt5` as a replacement.  Make sure you install it on windows:
+
+<details>
+  <summary>PyQt5 installation on Windows</summary>
+  
+  
 
 First, clone this repository using git or just [download](https://github.com/AXeL-dev/Dindo-Bot/archive/master.zip) & unzip it:
 
