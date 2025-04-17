@@ -6,15 +6,20 @@ import os
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Wnck', '3.0')
-from gi.repository import Gtk, Gdk, GdkX11, Wnck
+from gi.repository import Gtk, Gdk, Wnck
 from datetime import datetime
-from Xlib import display, X, Xatom
 from PIL import Image
 from . import parser
 import pyautogui
 import time
 import socket
 import webbrowser
+import platform
+
+if platform.system() == 'Windows':
+	import win32gui
+else:
+	from Xlib import display, X, Xatom
 
 disp = display.Display()
 root = disp.screen().root
@@ -24,19 +29,37 @@ NET_FRAME_EXTENTS = disp.intern_atom('_NET_FRAME_EXTENTS')
 def get_game_window_list():
 	game_window_list = {}
 	try:
-		screen = Wnck.Screen.get_default()
-		screen.force_update() # recommended per Wnck documentation
-		window_list = screen.get_windows()
-		for window in window_list:
-			window_name = window.get_name()
-			instance_name = window.get_class_instance_name()
-			#print('[' + instance_name + '] ' + window_name)
-			if instance_name == 'dofus.exe' or instance_name == 'dofus': # use 'sun-awt-X11-XFramePeer' for Wakfu
-				if window_name in game_window_list:
-					name = '%s (%d)' % (window_name, len(game_window_list)+1)
-				else:
-					name = window_name
-				game_window_list[name] = window.get_xid()
+		if platform.system() == 'Windows':
+			def winEnumHandler(hwnd, ctx):
+				if win32gui.IsWindowVisible(hwnd):
+					window_text = win32gui.GetWindowText(hwnd)
+					_, pid = win32gui.GetWindowThreadProcessId(hwnd)
+					try:
+						exe = psutil.Process(pid).name()
+						if exe.lower() in ['dofus.exe']:
+							if window_text in game_window_list:
+								name = '%s (%d)' % (window_text, len(game_window_list)+1)
+							else:
+								name = window_text
+							game_window_list[name] = hwnd
+					except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+						pass
+
+			win32gui.EnumWindows(winEnumHandler, None)
+		else:
+			screen = Wnck.Screen.get_default()
+			screen.force_update() # recommended per Wnck documentation
+			window_list = screen.get_windows()
+			for window in window_list:
+				window_name = window.get_name()
+				instance_name = window.get_class_instance_name()
+				#print('[' + instance_name + '] ' + window_name)
+				if instance_name == 'dofus.exe' or instance_name == 'dofus': # use 'sun-awt-X11-XFramePeer' for Wakfu
+					if window_name in game_window_list:
+						name = '%s (%d)' % (window_name, len(game_window_list)+1)
+					else:
+						name = window_name
+					game_window_list[name] = window.get_xid()
 	except Exception as ex:
 		print(ex.message)
 	return game_window_list
@@ -48,24 +71,33 @@ def get_screen_size():
 	return pyautogui.size()
 
 # Activate a window
-def activate_window(window):
-	screen = Wnck.Screen.get_default()
-	screen.force_update()
-	wnckwin = [win for win in screen.get_windows() if win.get_xid() == window.get_xid()][0]
-	wnckwin.activate(GdkX11.x11_get_server_time(window))
+def activate_window(window_id):
+	if platform.system() == 'Windows':
+		win32gui.ShowWindow(window_id, 5)  # SW_SHOW
+		win32gui.SetForegroundWindow(window_id)
+	else:
+		screen = Wnck.Screen.get_default()
+		screen.force_update()
+		wnckwin = [win for win in screen.get_windows() if win.get_xid() == window_id][0]
+		if wnckwin:
+			wnckwin.activate(Gdk.x11_get_server_time(screen))
 
-# Return game window
-def get_game_window(window_xid):
-	gdk_display = GdkX11.X11Display.get_default()
-	game_window = GdkX11.X11Window.foreign_new_for_display(gdk_display, window_xid)
-	return game_window
+# Return game window (Linux only)
+def get_game_window(window_xid): 
+	if platform.system() == 'Linux':
+		gdk_display = Gdk.Display.get_default()
+		game_window = Gdk.Window.foreign_new_for_display(gdk_display, window_xid)
+		return game_window
+	return None
 
 # Return game window decoration height
 def get_game_window_decoration_height(window_xid):
-	window = disp.create_resource_object('window', window_xid)
-	window_decoration_property = window.get_full_property(NET_FRAME_EXTENTS, Xatom.CARDINAL).value # return array(left, right, top, bottom) of borders width
-	window_decoration_height = int(window_decoration_property[2]) + int(window_decoration_property[3])
-	return window_decoration_height
+	if platform.system() == 'Linux':
+		window = disp.create_resource_object('window', window_xid)
+		window_decoration_property = window.get_full_property(NET_FRAME_EXTENTS, Xatom.CARDINAL).value # return array(left, right, top, bottom) of borders width
+		window_decoration_height = int(window_decoration_property[2]) + int(window_decoration_property[3])
+		return window_decoration_height
+	return 0 
 
 # Return absolute path
 def get_full_path(rel_path):
@@ -98,9 +130,12 @@ def print_internet_state(state=None):
 
 # Take a screenshot of given window
 def take_window_screenshot(window, save_to='screenshot'):
-	size = window.get_geometry()
-	pb = Gdk.pixbuf_get_from_window(window, 0, 0, size.width, size.height)
-	pb.savev(save_to + '.png', 'png', (), ())
+	if platform.system() == 'Linux':
+		size = window.get_geometry()
+		pb = Gdk.pixbuf_get_from_window(window, 0, 0, size.width, size.height)
+		pb.savev(save_to + '.png', 'png', (), ())
+	else:
+		pyautogui.screenshot(save_to + '.png')
 
 # Return a screenshot of the game
 def screen_game(region, save_to=None):

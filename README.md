@@ -8,7 +8,7 @@ Farming bot for Dofus game written in python & [GTK](https://www.gtk.org/).
 
 > :construction: version 3 is work in progress, you can test it or contribute on the [v3-alpha](https://github.com/AXeL-dev/Dindo-Bot/tree/v3-alpha) branch.
 
-[![screenshot](screenshot.png)](http://www.youtube.com/watch?v=1Qh_eNLuTYo "Watch Dindo-bot in action")
+[![screenshot](screenshot.png)](https://www.youtube.com/watch?v=1Qh_eNLuTYo "Watch Dindo-bot in action")
 
 > What's a bot?
 
@@ -16,7 +16,7 @@ A bot is a software that emulates a real game client in order to automate some t
 
 :warning: Better know that this bot is only available on [Linux](https://www.wikipedia.org/wiki/Linux) for now.
 
-## Features
+## Key Features
 
 - **Easy control**: play, pause/resume or stop the bot like if you were using your favorite music player.
 - **Smart bot**: Dindo knows when your connection turns off and will wait for it to get back before proceeding or will automatically pause itself if it takes a long time.
@@ -26,7 +26,7 @@ A bot is a software that emulates a real game client in order to automate some t
 
 ## Use Cases
 
-- Auto-connect to your Dofus account(s).
+- Auto-connect to your Dofus account(s). :key:
 - Move around the map & save time for long dungeon paths, [paths](paths) pull requests are welcome :pray:.
 - Farming & jobs (:construction: this part still needs to be improved, also, the bot cannot handle fights yet :warning:).
 - Automated actions like flood :speech_balloon:.

@@ -3,6 +3,8 @@
 
 import gi
 gi.require_version('Gtk', '3.0')
+import platform
+import os
 from gi.repository import Gtk, Gdk, GdkPixbuf, GObject
 from lib import tools, logger, data, parser, settings, accounts, maps
 from threads.bot import BotThread
@@ -19,6 +21,7 @@ class BotWindow(Gtk.ApplicationWindow):
 		Gtk.Window.__init__(self, title=title)
 		logger.add_separator()
 		# Initialise class attributes
+		self.is_windows = platform.system() == "Windows"
 		self.game_window = None
 		self.game_window_location = None
 		self.bot_path = None
@@ -52,6 +55,9 @@ class BotWindow(Gtk.ApplicationWindow):
 		if self.settings['EnableShortcuts']:
 			# get keyname
 			keyname = Gdk.keyval_name(event.keyval)
+			# Adapt keyname for Windows
+			if self.is_windows and keyname == "Control_L":
+				keyname = "Ctrl"
 			ctrl = (event.state & Gdk.ModifierType.CONTROL_MASK)
 			alt = (event.state & Gdk.ModifierType.MOD1_MASK)
 			shift = (event.state & Gdk.ModifierType.SHIFT_MASK)
@@ -143,13 +149,21 @@ class BotWindow(Gtk.ApplicationWindow):
 			self.log("Screenshot saved to '%s'" % screenshot_path, LogType.Info)
 
 	def create_header_bar(self, title):
-		### Header Bar
+		# Header Bar
 		hb = Gtk.HeaderBar(title=title)
 		logo = GdkPixbuf.Pixbuf.new_from_file_at_size(tools.get_full_path('icons/logo.png'), 24, 24)
 		hb.pack_start(Gtk.Image(pixbuf=logo))
+
+		# Adapt for Windows
+		if self.is_windows:
+			hb.set_show_close_button(False)
+		else:
+			hb.set_show_close_button(True)
+		
 		hb.set_show_close_button(True)
+		
 		self.set_titlebar(hb)
-		## Settings button
+		# Settings button
 		self.settings_button = Gtk.Button()
 		self.settings_button.set_image(Gtk.Image(icon_name='open-menu-symbolic'))
 		self.settings_button.connect('clicked', lambda button: self.popover.show_all())
@@ -207,7 +221,7 @@ class BotWindow(Gtk.ApplicationWindow):
 		self.log_notebook.set_size_request(-1, 200)
 		## Log Tab
 		log_page = Gtk.ScrolledWindow()
-		self.log_view = Gtk.TextView()
+		self.log_view = Gtk.TextView()		
 		self.log_view.set_border_width(5)
 		self.log_view.set_editable(False)
 		self.log_view.set_wrap_mode(Gtk.WrapMode.WORD)
@@ -247,7 +261,11 @@ class BotWindow(Gtk.ApplicationWindow):
 		# ComboBox
 		self.game_window_combo = Gtk.ComboBoxText()
 		self.game_window_combo.set_margin_left(10)
+		if self.is_windows:
+			self.populate_game_window_combo_windows()
+		else:
 		self.populate_game_window_combo()
+		
 		self.game_window_combo.connect('changed', self.on_game_window_combo_changed)
 		game_window_box.pack_start(self.game_window_combo, True, True, 0)
 		# Refresh
@@ -1019,15 +1037,28 @@ class BotWindow(Gtk.ApplicationWindow):
 		self.bot_path = filechooserbutton.get_filename()
 
 	def populate_game_window_combo(self):
+		
 		self.game_window_combo_ignore_change = True
 		self.game_window_combo.remove_all()
 		self.game_windowList = tools.get_game_window_list()
 		count = len(self.game_windowList)
+		
 		if count == 0:
 			self.debug('Populate game window combobox, no window found', DebugLevel.High)
 		else:
 			self.debug('Populate game window combobox, %d window found' % count, DebugLevel.High)
 		for window_name in self.game_windowList:
+			
+			self.game_window_combo.append_text(window_name)
+		self.game_window_combo_ignore_change = False
+
+	def populate_game_window_combo_windows(self):
+		self.game_window_combo_ignore_change = True
+		self.game_window_combo.remove_all()
+		self.game_windowList = tools.get_game_window_list()
+		for window_name in self.game_windowList:
+			# Asegurarse de que el nombre de la ventana no esté vacío
+			if window_name:
 			self.game_window_combo.append_text(window_name)
 		self.game_window_combo_ignore_change = False
 
@@ -1072,6 +1103,12 @@ class BotWindow(Gtk.ApplicationWindow):
 			# enable/disable widgets
 			self.refresh_button.hide()
 			self.unbind_button.show()
+
+			if self.is_windows:
+					self.game_window_combo.set_sensitive(False)
+			else:
+					self.game_window_combo.set_sensitive(False)
+
 			self.game_window_combo.set_sensitive(False)
 			self.take_screenshot_button.set_sensitive(True)
 
@@ -1096,7 +1133,12 @@ class BotWindow(Gtk.ApplicationWindow):
 		self.unbind_button.hide()
 		self.refresh_button.show()
 		self.game_window_combo.set_sensitive(True)
+		if self.is_windows:
+			self.populate_game_window_combo_windows()
+		else:
 		self.populate_game_window_combo()
+		
+		
 		self.take_screenshot_button.set_sensitive(False)
 
 	def on_unbind_button_clicked(self, button):
