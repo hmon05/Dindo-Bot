@@ -266,7 +266,7 @@ class BotWindow(QMainWindow):
 		if self.is_windows:
 			self.populate_game_window_combo_windows()
 		else:
-		self.populate_game_window_combo()
+			self.populate_game_window_combo()
 		
 		self.game_window_combo.connect('changed', self.on_game_window_combo_changed)
 		game_window_box.pack_start(self.game_window_combo, True, True, 0)
@@ -1061,7 +1061,7 @@ class BotWindow(QMainWindow):
 		for window_name in self.game_windowList:
 			# Asegurarse de que el nombre de la ventana no esté vacío
 			if window_name:
-			self.game_window_combo.append_text(window_name)
+				self.game_window_combo.append_text(window_name)
 		self.game_window_combo_ignore_change = False
 
 	def focus_game(self):
@@ -1138,7 +1138,7 @@ class BotWindow(QMainWindow):
 		if self.is_windows:
 			self.populate_game_window_combo_windows()
 		else:
-		self.populate_game_window_combo()
+			self.populate_game_window_combo()
 		
 		
 		self.take_screenshot_button.set_sensitive(False)
